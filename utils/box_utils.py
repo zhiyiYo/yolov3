@@ -1,14 +1,13 @@
 # coding: utf-8
-from typing import Union, List
-import cmapy
 import math
+from typing import List, Union
 
+import cmapy
 import numpy as np
 import torch
 from numpy import ndarray
-from torch import Tensor
-
 from PIL import Image, ImageDraw, ImageFont
+from torch import Tensor
 
 
 def log_sum_exp(x: Tensor):
@@ -104,6 +103,17 @@ def center_to_corner(boxes: Tensor):
     return torch.cat((boxes[:, :2]-boxes[:, 2:]/2, boxes[:, :2]+boxes[:, 2:]/2), dim=1)
 
 
+def center_to_corner_numpy(boxes: ndarray) -> ndarray:
+    """ 将 `(cx, cy, w, h)` 形式的边界框变换为 `(xmin, ymin, xmax, ymax)` 形式的边界框
+
+    Parameters
+    ----------
+    boxes: `~np.ndarray` of shape `(n, 4)`
+        边界框
+    """
+    return np.hstack((boxes[:, :2]-boxes[:, 2:]/2, boxes[:, :2]+boxes[:, 2:]/2))
+
+
 def corner_to_center(boxes: Tensor):
     """ 将 `(xmin, ymin, xmax, ymax)` 形式的边界框变换为 `(cx, cy, w, h)` 形式的边界框
 
@@ -113,6 +123,17 @@ def corner_to_center(boxes: Tensor):
         边界框
     """
     return torch.cat(((boxes[:, :2]+boxes[:, 2:])/2, boxes[:, 2:]-boxes[:, :2]), dim=1)
+
+
+def corner_to_center_numpy(boxes: ndarray) -> ndarray:
+    """ 将 `(xmin, ymin, xmax, ymax)` 形式的边界框变换为 `(cx, cy, w, h)` 形式的边界框
+
+    Parameters
+    ----------
+    boxes: `~np.ndarray` of shape `(n, 4)`
+        边界框
+    """
+    return np.hstack(((boxes[:, :2]+boxes[:, 2:])/2, boxes[:, 2:]-boxes[:, :2]))
 
 
 def encode(prior: Tensor, matched_bbox: Tensor, variance: tuple):
@@ -234,7 +255,7 @@ def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, o
             t[i, index, gi, gj, 2] = math.log(gw/anchors[index, 2]+1e-16)
             t[i, index, gi, gj, 3] = math.log(gh/anchors[index, 3]+1e-16)
             t[i, index, gi, gj, 4] = 1
-            t[i, index, gi, gj, 5+target[i][j, 0]] = 1
+            t[i, index, gi, gj, 5+int(target[i][j, 0])] = 1
 
     return p_mask, n_mask, t
 
@@ -309,7 +330,7 @@ def draw(image: Union[ndarray, Image.Image], bbox: ndarray, label: ndarray, conf
         RGB 图像
 
     bbox: `~np.ndarray` of shape `(n_objects, 4)`
-        边界框
+        边界框，坐标形式为 `(cx, cy, w, h)`
 
     label: Iterable of shape `(n_objects, )`
         标签
@@ -317,7 +338,7 @@ def draw(image: Union[ndarray, Image.Image], bbox: ndarray, label: ndarray, conf
     conf: Iterable of shape `(n_objects, )`
         置信度
     """
-    bbox = bbox.astype(np.int)
+    bbox = center_to_corner_numpy(bbox).astype(np.int)
 
     if isinstance(image, ndarray):
         image = Image.fromarray(image.astype(np.uint8))  # type:Image.Image

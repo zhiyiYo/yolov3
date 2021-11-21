@@ -1,7 +1,6 @@
 # coding: utf-8
 import torch
 from torch import Tensor, nn
-from torch.nn import functional as F
 from utils.box_utils import match
 
 
@@ -51,11 +50,11 @@ class YoloLoss(nn.Module):
         target: Tensor of shape `(N, n_objects, 5)`
             标签，最后一个维度的第一个元素为类别，剩下四个元素为边界框 `(cx, cy, w, h)`
         """
-        N, _, h, w = pred.shape
+        N, _, img_h, img_w = pred.shape
 
         # 调整特征图尺寸，方便索引
         pred = pred.view(N, self.n_anchors, self.n_classes+5,
-                         h, w).permute(0, 1, 3, 4, 2).contiguous()
+                         img_h, img_w).permute(0, 1, 3, 4, 2).contiguous()
 
         # 获取特征图最后一个维度的每一部分
         x = pred[..., 0].sigmoid()
@@ -66,15 +65,18 @@ class YoloLoss(nn.Module):
         cls = pred[..., 5:].sigmoid()
 
         # 匹配边界框
-        step_h = self.image_size/h
-        step_w = self.image_size/w
+        step_h = self.image_size/img_h
+        step_w = self.image_size/img_w
         anchors = [(i/step_w, j/step_h) for i, j in self.anchors]
         p_mask, n_mask, t = match(
-            anchors, target, h, w, self.n_classes, self.overlap_thresh)
+            anchors, target, img_h, img_w, self.n_classes, self.overlap_thresh)
 
         # 定位损失
-        loc_loss = self.mse_loss(torch.stack(
-            [x, y, w, h])*p_mask, t[..., :4]*p_mask)*self.lambda_box
+        x_loss = self.mse_loss(x*p_mask, t[..., 0]*p_mask)*self.lambda_box
+        y_loss = self.mse_loss(y*p_mask, t[..., 1]*p_mask)*self.lambda_box
+        w_loss = self.mse_loss(w*p_mask, t[..., 2]*p_mask)*self.lambda_box
+        h_loss = self.mse_loss(h*p_mask, t[..., 3]*p_mask)*self.lambda_box
+        loc_loss = x_loss + y_loss + w_loss + h_loss
 
         # 置信度损失
         conf_loss = self.bce_loss(conf*p_mask, p_mask)*self.lambda_obj + \

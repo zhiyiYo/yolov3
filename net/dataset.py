@@ -1,13 +1,13 @@
 # coding:utf-8
-from typing import List, Tuple
 from os import path
-from typing import Dict
+from typing import Dict, List, Tuple
 from xml.etree import ElementTree as ET
 
 import cv2 as cv
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from utils.augmentation_utils import Transformer
 
 
 class AnnotationTransformer:
@@ -56,14 +56,15 @@ class AnnotationTransformer:
                 continue
 
             data = []
-            data.append(self.class_to_index[name])
 
+            # 类别编码
             name = obj.find('name').text.lower().strip()
-            bbox = obj.find('bndbox')
+            data.append(self.class_to_index[name])
 
             # 归一化方框位置
             box = []
             points = ['xmin', 'ymin', 'xmax', 'ymax']
+            bbox = obj.find('bndbox')
             for i, pt in enumerate(points):
                 pt = int(bbox.find(pt).text) - 1
                 pt = pt/w if i % 2 == 0 else pt/h
@@ -91,7 +92,7 @@ class VOCDataset(Dataset):
         'sheep', 'sofa', 'train', 'tvmonitor'
     ]
 
-    def __init__(self, root: str, image_set: str, tranformer=None, keep_difficult=False):
+    def __init__(self, root: str, image_set: str, tranformer: Transformer = None, keep_difficult=False):
         """
         Parameters
         ----------
@@ -149,7 +150,7 @@ class VOCDataset(Dataset):
             增强后的图像数据
 
         target: `np.ndarray` of shape `(n_objects, 5)`
-            标签数据
+            标签数据，第一列为类别标签，剩下四列为边界框坐标 `(cx, cy, w, h)`
         """
         image_path = self.image_paths[index]
         annotation_path = self.annotation_paths[index]
@@ -162,7 +163,7 @@ class VOCDataset(Dataset):
         # 数据增强
         if self.transformer:
             image, bbox, label = self.transformer.transform(image, bbox, label)
-            target = np.hstack((bbox, label[:, np.newaxis]))
+            target = np.hstack((label[:, np.newaxis], bbox))
 
         return torch.from_numpy(image.copy()).permute(2, 0, 1), target
 
