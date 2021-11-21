@@ -12,7 +12,7 @@ class YoloLoss(nn.Module):
         """
         Parameters
         ----------
-        anchor: List[Tuple[int, int]]
+        anchor: List[List[int]]
             先验框列表
 
         n_classes: int
@@ -49,6 +49,17 @@ class YoloLoss(nn.Module):
 
         target: Tensor of shape `(N, n_objects, 5)`
             标签，最后一个维度的第一个元素为类别，剩下四个元素为边界框 `(cx, cy, w, h)`
+
+        Returns
+        -------
+        loc_loss: Tensor
+            定位损失
+
+        conf_loss: Tensor
+            置信度损失
+
+        cls_loss: Tensor
+            分类损失
         """
         N, _, img_h, img_w = pred.shape
 
@@ -57,12 +68,12 @@ class YoloLoss(nn.Module):
                          img_h, img_w).permute(0, 1, 3, 4, 2).contiguous()
 
         # 获取特征图最后一个维度的每一部分
-        x = pred[..., 0].sigmoid()
-        y = pred[..., 1].sigmoid()
-        w = pred[..., 2]
-        h = pred[..., 3]
-        conf = pred[..., 4].sigmoid()
-        cls = pred[..., 5:].sigmoid()
+        x = pred[..., 0].sigmoid()      # shape:(N, n_anchors, H, W)
+        y = pred[..., 1].sigmoid()      # shape:(N, n_anchors, H, W)
+        w = pred[..., 2]                # shape:(N, n_anchors, H, W)
+        h = pred[..., 3]                # shape:(N, n_anchors, H, W)
+        conf = pred[..., 4].sigmoid()   # shape:(N, n_anchors, H, W)
+        cls = pred[..., 5:].sigmoid()   # shape:(N, n_anchors, H, W, n_classes)
 
         # 匹配边界框
         step_h = self.image_size/img_h

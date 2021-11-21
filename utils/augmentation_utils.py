@@ -7,6 +7,7 @@ from imgaug.augmenters.meta import Augmenter
 import numpy as np
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 from numpy import ndarray
+import torch
 
 from .box_utils import center_to_corner_numpy, corner_to_center_numpy
 
@@ -192,3 +193,41 @@ class VOCAugmentation(Transformer):
 
     def transform(self, image: ndarray, bbox: ndarray, label: ndarray):
         return self.transformers.transform(image, bbox, label)
+
+
+class ToTensor(Transformer):
+    """ 将 np.ndarray 图像转换为 Tensor """
+
+    def __init__(self, image_size=300):
+        """
+        Parameters
+        ----------
+        image_size: int
+            缩放后的图像尺寸
+
+        mean: tuple
+            RGB 图像各通道的均值
+        """
+        super().__init__()
+        self.image_size = image_size
+
+    def transform(self, image: ndarray, bbox: ndarray = None, label: ndarray = None):
+        """ 将图像进行缩放、中心化并转换为 Tensor
+
+        Parameters
+        ----------
+        image: `~np.ndarray`
+            RGB 图像
+
+        bbox, label: None
+            没有用到
+
+        Returns
+        -------
+        image: Tensor of shape `(1, 3, image_size, image_size)`
+            转换后的图像
+        """
+        size = self.image_size
+        x = cv.resize(image, (size, size)).astype(np.float32)
+        x = torch.from_numpy(x).permute(2, 0, 1).unsqueeze(0)
+        return x

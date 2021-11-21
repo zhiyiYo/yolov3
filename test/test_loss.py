@@ -13,7 +13,7 @@ class TestLoss(unittest.TestCase):
         """ 测试损失 """
         anchors = [[116, 90], [156, 198], [373, 326]]
         yolo_loss = YoloLoss(anchors, 20, 416)
-        model = Yolo(20)
+        model = Yolo(20, [anchors], 416)
 
         pred = model(torch.rand(2, 3, 416, 416))[0]
         target = [

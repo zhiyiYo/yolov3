@@ -1,6 +1,16 @@
 # coding:utf-8
+import os
+from pathlib import Path
+from typing import Union, List
+
+import numpy as np
 import torch
 from torch import nn
+from PIL import Image
+
+from .detector import Detector
+from utils.box_utils import draw
+from utils.augmentation_utils import ToTensor
 
 
 class ConvBlock(nn.Module):
@@ -113,15 +123,23 @@ class YoloBlock(nn.Module):
 class Yolo(nn.Module):
     """ Yolo 神经网络 """
 
-    def __init__(self, n_classes: int):
+    def __init__(self, n_classes: int, anchors: list, image_size: int):
         """
         Parameters
         ----------
         n_classes: int
             类别数
+
+        anchors: list
+            先验框
+
+        image_size: int
+            图片尺寸
         """
         super().__init__()
         self.n_classes = n_classes
+        self.image_size = image_size
+
         self.darknet = Darknet()
         self.yolo1 = YoloBlock(1024, 512)
         self.yolo2 = YoloBlock(768, 256)
@@ -149,6 +167,9 @@ class Yolo(nn.Module):
             nn.Conv2d(256, 128, 1),
             nn.Upsample(scale_factor=2)
         ])
+
+        # 探测器
+        self.detector = Detector(anchors, image_size, n_classes)
 
     def forward(self, x):
         """
@@ -180,11 +201,89 @@ class Yolo(nn.Module):
 
         return y1, y2, y3
 
+    def load(self, model_path: Union[Path, str]):
+        """ 载入模型
 
-if __name__ == '__main__':
-    net = Darknet()
-    state_dict = net.state_dict()
+        Parameters
+        ----------
+        model_path: str or Path
+            模型文件路径
+        """
+        self.load_state_dict(torch.load(model_path))
 
-    with open('my_darknet.txt', 'w') as f:
-        for k in state_dict.keys():
-            f.write(k+'\n')
+    @torch.no_grad()
+    def predict(self, x: torch.Tensor):
+        """ 预测结果
+
+        Parameters
+        ----------
+        x: Tensor of shape `(N, 3, H, W)`
+            输入图像
+
+        Returns
+        -------
+        out: Tensor of shape `(N, n_classes, top_k, 5)`
+            检测结果，最后一个维度的第一个元素为置信度，后四个元素为边界框 `(cx, cy, w, h)`
+        """
+        return self.detector(self(x))
+
+    def detect(self, image: Union[str, np.ndarray], classes: List[str], conf_thresh=0.6, use_gpu=True):
+        """ 对图片进行目标检测
+
+        Parameters
+        ----------
+        image: str of `np.ndarray`
+            图片路径或者 RGB 图像
+
+        classes: List[str]
+            类别列表
+
+        conf_thresh: float
+            置信度阈值，舍弃小于这个阈值的预测框
+
+        use_gpu: bool
+            是否使用 GPU
+
+        Returns
+        -------
+        image: `~PIL.Image.Image`
+            绘制了边界框、置信度和类别的图像
+        """
+        if not 0 <= conf_thresh < 1:
+            raise ValueError("置信度阈值必须在 [0, 1) 范围内")
+
+        if isinstance(image, str):
+            if os.path.exists(image):
+                image = np.array(Image.open(image).convert('RGB'))
+            else:
+                raise FileNotFoundError("图片不存在，请检查图片路径！")
+
+        h, w, channels = image.shape
+        if channels != 3:
+            raise ValueError('输入的必须是三个通道的 RGB 图像')
+
+        x = ToTensor(self.image_size).transform(image)
+        if use_gpu:
+            x = x.cuda()
+
+        # 预测边界框和置信度，shape: (n_classes, top_k, 5)
+        y = self.predict(x)[0]
+
+        # 筛选出置信度不小于阈值的预测框
+        bbox = []
+        conf = []
+        label = []
+        for c in range(y.size(0)):
+            mask = y[c, :, 0] >= conf_thresh
+
+            # 将归一化的边界框还原
+            boxes = y[c, :, 1:][mask]
+            boxes[:, [0, 2]] *= w
+            boxes[:, [1, 3]] *= h
+            bbox.append(boxes.detach().numpy())
+
+            conf.extend(y[c, :, 0][mask].tolist())
+            label.extend([classes[c]] * mask.sum())
+
+        image = draw(image, np.vstack(bbox), label, conf)
+        return image

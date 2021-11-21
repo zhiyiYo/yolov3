@@ -136,55 +136,60 @@ def corner_to_center_numpy(boxes: ndarray) -> ndarray:
     return np.hstack(((boxes[:, :2]+boxes[:, 2:])/2, boxes[:, 2:]-boxes[:, :2]))
 
 
-def encode(prior: Tensor, matched_bbox: Tensor, variance: tuple):
-    """ 编码先验框和与边界框之间的偏置量
+def decode(pred: Tensor, anchors: List[List[int]], n_classes: int, image_size: int):
+    """ 解码出预测框
 
     Parameters
     ----------
-    prior: Tensor of shape `(n_priors, 4)`
-        先验框，坐标形式为 `(cx, cy, w, h)`
+    pred: Tensor of shape `(N, (n_classes+5)*n_anchors, H, W)`
+        神经网络输出的一个特征图
 
-    matched_bbox: Tensor of shape `(n_priors, 4)`
-        匹配到的边界框，坐标形式为 `(xmin, ymin, xmax, ymax)`
+    anchors: List[List[int]]
+        先验框
 
-    variance: Tuple[float, float]
-        先验框方差
+    n_classes: int
+        类别数
 
-    Returns
-    -------
-    g: Tensor of shape `(n_priors, 4)`
-        编码后的偏置量
-    """
-    matched_bbox = corner_to_center(matched_bbox)
-    g_cxcy = (matched_bbox[:, :2]-prior[:, :2]) / (variance[0]*prior[:, 2:])
-    g_wh = torch.log(matched_bbox[:, 2:]/prior[:, 2:]+1e-5) / variance[1]
-    return torch.cat((g_cxcy, g_wh), dim=1)
-
-
-def decode(loc: Tensor, prior: Tensor, variance: tuple):
-    """ 根据偏移量和先验框位置解码出边界框的位置
-
-    Parameters
-    ----------
-    loc: Tensor of shape `(n_priors, 4)`
-        先验框，坐标形式为 `(cx, cy, w, h)`
-
-    prior: Tensor of shape `(n_priors, 4)`
-        先验框，坐标形式为 `(cx, cy, w, h)`
-
-    variance: Tuple[float, float]
-        先验框方差
+    image_size: int
+        输入神经网络的图像尺寸
 
     Returns
     -------
-    g: Tensor of shape `(n_priors, 4)`
-        边界框的位置
+    out: Tensor of shape `(N, n_anchors, H, W, n_classes+5)`
+        预测框
     """
-    bbox = torch.cat((
-        prior[:, :2] + prior[:, 2:] * variance[0] * loc[:, :2],
-        prior[:, 2:] * torch.exp(variance[1] * loc[:, 2:])), dim=1)
-    bbox = center_to_corner(bbox)
-    return bbox
+    n_anchors = len(anchors)
+    N, _, h, w = pred.shape
+
+    # 调整特征图尺寸，方便索引
+    pred = pred.view(N, n_anchors, n_classes+5, h,
+                     w).permute(0, 1, 3, 4, 2).contiguous().cpu()
+
+    # 缩放先验框
+    step_h = image_size/h
+    step_w = image_size/w
+    anchors = [(i/step_w, j/step_h) for i, j in anchors]
+    anchors = Tensor(anchors)  # type:Tensor
+
+    # 广播
+    cx = torch.linspace(0, w-1, w).repeat(N, n_anchors, h, 1)
+    cy = torch.linspace(0, h-1, h).view(h, 1).repeat(N, n_anchors, 1, w)
+    pw = anchors[:, 0].view(n_anchors, 1, 1).repeat(N, 1, h, w)
+    ph = anchors[:, 1].view(n_anchors, 1, 1).repeat(N, 1, h, w)
+
+    # 解码
+    out = torch.zeros(N, n_anchors, h, w, n_classes+5)
+    out[..., 0] = cx + pred[..., 0].sigmoid()
+    out[..., 1] = cy + pred[..., 1].sigmoid()
+    out[..., 2] = pw*torch.exp(pred[..., 2])
+    out[..., 3] = ph*torch.exp(pred[..., 3])
+    out[..., 4:] = pred[..., 4:].sigmoid()
+
+    # 缩放预测框
+    out[..., [0, 2]] *= step_w
+    out[..., [1, 3]] *= step_h
+
+    return out
 
 
 def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, overlap_thresh=0.5):
@@ -265,11 +270,11 @@ def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.5, top_k=200):
 
     Parameters
     ----------
-    boxes: Tensor of shape `(n_priors, 4)`
-        预测框，坐标形式为 `(xmin, ymin, xmax, ymax)`
+    boxes: Tensor of shape `(n_boxes, 4)`
+        预测框，坐标形式为 `(cx, cy, w, h)`
 
-    scores: Tensor of shape `(n_priors, )`
-        某个类的每个先验框的置信度
+    scores: Tensor of shape `(n_boxes, )`
+        某个类的每个预测框的置信度
 
     overlap_thresh: float
         IOU 阈值，大于阈值的部分预测框会被移除，值越小保留的框越多
@@ -287,6 +292,7 @@ def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.5, top_k=200):
         return torch.LongTensor(keep)
 
     # 每个预测框的面积
+    boxes = center_to_corner(boxes)
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]
     x2 = boxes[:, 2]
