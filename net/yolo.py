@@ -193,7 +193,7 @@ class Yolo(nn.Module):
 
         # 探测器
         self.detector = Detector(
-            self.anchors, image_size, n_classes, conf_thresh=0.25, nms_thresh=nms_thresh)
+            self.anchors, image_size, n_classes, conf_thresh=0.4, nms_thresh=nms_thresh)
 
     def forward(self, x):
         """

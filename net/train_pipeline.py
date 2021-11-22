@@ -35,7 +35,7 @@ def exception_handler(train_func):
 class TrainPipeline:
     """ 训练模型流水线 """
 
-    def __init__(self, n_classes: int, anchors: list, image_size: int, dataset: Dataset, darknet_path: str = None,
+    def __init__(self, n_classes: int, image_size: int, anchors: list, dataset: Dataset, darknet_path: str = None,
                  yolo_path: str = None, lr=0.01, momentum=0.9, weight_decay=5e-4, lr_steps=(60, 80), batch_size=16,
                  start_epoch=0, max_epoch=100, save_frequency=5, use_gpu=True, save_dir='model',
                  log_file: str = None, log_dir='log'):
@@ -45,11 +45,11 @@ class TrainPipeline:
         n_classes: int
             类别数
 
-        anchors: list of shape `(3, n_anchors, 2)`
-            先验框
-
         image_size: int
             输入 Yolo 神经网络的图片大小
+
+        anchors: list of shape `(3, n_anchors, 2)`
+            输入神经网络的图片尺寸为 416 时的先验框尺寸
 
         dataset: Dataset
             训练数据集
@@ -110,7 +110,7 @@ class TrainPipeline:
         self.current_epoch = start_epoch
 
         # 创建模型
-        self.model = Yolo(n_classes, anchors, image_size).to(self.device)
+        self.model = Yolo(n_classes, image_size, anchors).to(self.device)
         if yolo_path:
             self.model.load(yolo_path)
             print('🧪 成功载入 Yolo 模型：' + yolo_path)

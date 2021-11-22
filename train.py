@@ -6,14 +6,14 @@ from utils.augmentation_utils import YoloAugmentation
 # train config
 config = {
     "n_classes": 20,
-    "image_size": 416,
+    "image_size": 352,
     "anchors": [
         [[10, 13], [16, 30], [33, 23]],
         [[30, 61], [62, 45], [59, 119]],
         [[116, 90], [156, 198], [373, 326]]
     ],
     "darknet_path": "model/darknet53.pth",
-    "batch_size": 4
+    "batch_size": 6
 }
 
 # load dataset
