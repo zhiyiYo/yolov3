@@ -102,6 +102,16 @@ class Darknet(nn.Module):
         x1 = self.residuals[-1](x2)
         return x1, x2, x3
 
+    def load(self, model_path: Union[Path, str]):
+        """ 载入模型
+
+        Parameters
+        ----------
+        model_path: str or Path
+            模型文件路径
+        """
+        self.load_state_dict(torch.load(model_path))
+
 
 class YoloBlock(nn.Module):
     """ Yolo 块 """
@@ -123,20 +133,33 @@ class YoloBlock(nn.Module):
 class Yolo(nn.Module):
     """ Yolo 神经网络 """
 
-    def __init__(self, n_classes: int, anchors: list, image_size: int):
+    def __init__(self, n_classes: int, image_size=416, anchors: list=None, nms_thresh=0.45):
         """
         Parameters
         ----------
         n_classes: int
             类别数
 
-        anchors: list
-            先验框
-
         image_size: int
             图片尺寸
+
+        anchors: list
+            输入图像大小为 416 时对应的先验框
+
+        nms_thresh: float
+            非极大值抑制的交并比阈值，值越大保留的预测框越多
         """
         super().__init__()
+        # 先验框
+        anchors = anchors or [
+            [[10, 13], [16, 30], [33, 23]],
+            [[30, 61], [62, 45], [59, 119]],
+            [[116, 90], [156, 198], [373, 326]]
+        ]
+        anchors = np.array(anchors)
+        anchors = anchors*image_size/416
+        self.anchors = anchors.tolist()
+
         self.n_classes = n_classes
         self.image_size = image_size
 
@@ -169,7 +192,8 @@ class Yolo(nn.Module):
         ])
 
         # 探测器
-        self.detector = Detector(anchors, image_size, n_classes)
+        self.detector = Detector(
+            self.anchors, image_size, n_classes, conf_thresh=0.25, nms_thresh=nms_thresh)
 
     def forward(self, x):
         """
@@ -276,10 +300,10 @@ class Yolo(nn.Module):
         for c in range(y.size(0)):
             mask = y[c, :, 0] >= conf_thresh
 
-            # 将归一化的边界框还原
+            # 将边界框还原会原来的尺寸
             boxes = y[c, :, 1:][mask]
-            boxes[:, [0, 2]] *= w
-            boxes[:, [1, 3]] *= h
+            boxes[:, [0, 2]] *= (w/self.image_size)
+            boxes[:, [1, 3]] *= (h/self.image_size)
             bbox.append(boxes.detach().numpy())
 
             conf.extend(y[c, :, 0][mask].tolist())

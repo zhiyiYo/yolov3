@@ -11,11 +11,15 @@ class TestLoss(unittest.TestCase):
 
     def test_loss(self):
         """ 测试损失 """
-        anchors = [[116, 90], [156, 198], [373, 326]]
+        anchors = [
+            [[10, 13], [16, 30], [33, 23]],
+            [[30, 61], [62, 45], [59, 119]],
+            [[116, 90], [156, 198], [373, 326]]
+        ]
         yolo_loss = YoloLoss(anchors, 20, 416)
-        model = Yolo(20, [anchors], 416)
+        model = Yolo(20, 416, anchors)
 
-        pred = model(torch.rand(2, 3, 416, 416))[0]
+        pred = model(torch.rand(2, 3, 416, 416))
         target = [
             torch.Tensor(np.array([
                 [0, 0.2, 0.3, 0.3, 0.4],

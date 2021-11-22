@@ -156,7 +156,7 @@ def decode(pred: Tensor, anchors: List[List[int]], n_classes: int, image_size: i
     Returns
     -------
     out: Tensor of shape `(N, n_anchors, H, W, n_classes+5)`
-        预测框
+        解码结果
     """
     n_anchors = len(anchors)
     N, _, h, w = pred.shape
@@ -265,7 +265,7 @@ def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, o
     return p_mask, n_mask, t
 
 
-def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.5, top_k=200):
+def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.45, top_k=100):
     """ 非极大值抑制，去除多余的预测框
 
     Parameters
@@ -277,7 +277,7 @@ def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.5, top_k=200):
         某个类的每个预测框的置信度
 
     overlap_thresh: float
-        IOU 阈值，大于阈值的部分预测框会被移除，值越小保留的框越多
+        IOU 阈值，大于阈值的部分预测框会被移除，值越大保留的框越多
 
     top_k: int
         保留的预测框个数上限

@@ -10,12 +10,7 @@ class TestYolo(unittest.TestCase):
 
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
-        anchors = [
-            [[10, 13], [16, 30], [33, 23]],
-            [[30, 61], [62, 45], [59, 119]],
-            [[116, 90], [156, 198], [373, 326]]
-        ]
-        self.model = Yolo(80, anchors, 256).cuda()
+        self.model = Yolo(80, 256).cuda()
 
     def test_forward(self):
         """ 测试前馈 """

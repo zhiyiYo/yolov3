@@ -1,4 +1,6 @@
 # coding: utf-8
+from typing import Tuple
+
 import torch
 from torch import Tensor, nn
 from utils.box_utils import match
@@ -12,7 +14,7 @@ class YoloLoss(nn.Module):
         """
         Parameters
         ----------
-        anchor: List[List[int]]
+        anchors: list of shape `(3, n_anchors, 2)`
             先验框列表
 
         n_classes: int
@@ -30,22 +32,21 @@ class YoloLoss(nn.Module):
         super().__init__()
         self.anchors = anchors
         self.n_classes = n_classes
-        self.n_anchors = len(anchors)
         self.image_size = image_size
         self.lambda_box = lambda_box
         self.lambda_obj = lambda_obj
         self.lambda_noobj = lambda_noobj
         self.lambda_cls = lambda_cls
         self.overlap_thresh = overlap_thresh
-        self.mse_loss = nn.MSELoss(reduction='sum')
-        self.bce_loss = nn.BCELoss(reduction='sum')
+        self.mse_loss = nn.MSELoss(reduction='mean')
+        self.bce_loss = nn.BCELoss(reduction='mean')
 
-    def forward(self, pred: Tensor, target: Tensor):
+    def forward(self, preds: Tuple[Tensor], target: Tensor):
         """
         Parameters
         ----------
-        pred: Tensor of shape `(N, (n_classes+5)*n_anchors, H, W)`
-            特征图
+        preds: Tuple[Tensor]
+            Yolo 神经网络输出的各个特征图，每个特征图的维度为 `(N, (n_classes+5)*n_anchors, H, W)`
 
         target: Tensor of shape `(N, n_objects, 5)`
             标签，最后一个维度的第一个元素为类别，剩下四个元素为边界框 `(cx, cy, w, h)`
@@ -61,40 +62,51 @@ class YoloLoss(nn.Module):
         cls_loss: Tensor
             分类损失
         """
-        N, _, img_h, img_w = pred.shape
+        loc_loss = 0
+        conf_loss = 0
+        cls_loss = 0
 
-        # 调整特征图尺寸，方便索引
-        pred = pred.view(N, self.n_anchors, self.n_classes+5,
-                         img_h, img_w).permute(0, 1, 3, 4, 2).contiguous()
+        for anchors, pred in zip(self.anchors, preds):
+            N, _, img_h, img_w = pred.shape
+            n_anchors = len(anchors)
 
-        # 获取特征图最后一个维度的每一部分
-        x = pred[..., 0].sigmoid()      # shape:(N, n_anchors, H, W)
-        y = pred[..., 1].sigmoid()      # shape:(N, n_anchors, H, W)
-        w = pred[..., 2]                # shape:(N, n_anchors, H, W)
-        h = pred[..., 3]                # shape:(N, n_anchors, H, W)
-        conf = pred[..., 4].sigmoid()   # shape:(N, n_anchors, H, W)
-        cls = pred[..., 5:].sigmoid()   # shape:(N, n_anchors, H, W, n_classes)
+            # 调整特征图尺寸，方便索引
+            pred = pred.view(N, n_anchors, self.n_classes+5,
+                             img_h, img_w).permute(0, 1, 3, 4, 2).contiguous()
 
-        # 匹配边界框
-        step_h = self.image_size/img_h
-        step_w = self.image_size/img_w
-        anchors = [(i/step_w, j/step_h) for i, j in self.anchors]
-        p_mask, n_mask, t = match(
-            anchors, target, img_h, img_w, self.n_classes, self.overlap_thresh)
+            # 获取特征图最后一个维度的每一部分
+            x = pred[..., 0].sigmoid()      # shape:(N, n_anchors, H, W)
+            y = pred[..., 1].sigmoid()      # shape:(N, n_anchors, H, W)
+            w = pred[..., 2]                # shape:(N, n_anchors, H, W)
+            h = pred[..., 3]                # shape:(N, n_anchors, H, W)
+            conf = pred[..., 4].sigmoid()   # shape:(N, n_anchors, H, W)
+            # shape:(N, n_anchors, H, W, n_classes)
+            cls = pred[..., 5:].sigmoid()
 
-        # 定位损失
-        x_loss = self.mse_loss(x*p_mask, t[..., 0]*p_mask)*self.lambda_box
-        y_loss = self.mse_loss(y*p_mask, t[..., 1]*p_mask)*self.lambda_box
-        w_loss = self.mse_loss(w*p_mask, t[..., 2]*p_mask)*self.lambda_box
-        h_loss = self.mse_loss(h*p_mask, t[..., 3]*p_mask)*self.lambda_box
-        loc_loss = x_loss + y_loss + w_loss + h_loss
+            # 匹配边界框
+            step_h = self.image_size/img_h
+            step_w = self.image_size/img_w
+            anchors = [(i/step_w, j/step_h) for i, j in anchors]
+            p_mask, n_mask, t = match(
+                anchors, target, img_h, img_w, self.n_classes, self.overlap_thresh)
 
-        # 置信度损失
-        conf_loss = self.bce_loss(conf*p_mask, p_mask)*self.lambda_obj + \
-            self.bce_loss(conf*n_mask, 0*n_mask)*self.lambda_noobj
+            p_mask = p_mask.to(pred.device)
+            n_mask = n_mask.to(pred.device)
+            t = t.to(pred.device)
 
-        # 分类损失
-        m = p_mask == 1
-        cls_loss = self.bce_loss(cls[m], t[..., 5:][m])*self.lambda_cls
+            # 定位损失
+            x_loss = self.mse_loss(x*p_mask, t[..., 0]*p_mask)*self.lambda_box
+            y_loss = self.mse_loss(y*p_mask, t[..., 1]*p_mask)*self.lambda_box
+            w_loss = self.mse_loss(w*p_mask, t[..., 2]*p_mask)*self.lambda_box
+            h_loss = self.mse_loss(h*p_mask, t[..., 3]*p_mask)*self.lambda_box
+            loc_loss += x_loss + y_loss + w_loss + h_loss
+
+            # 置信度损失
+            conf_loss += self.bce_loss(conf*p_mask, p_mask)*self.lambda_obj + \
+                self.bce_loss(conf*n_mask, 0*n_mask)*self.lambda_noobj
+
+            # 分类损失
+            m = p_mask == 1
+            cls_loss += self.bce_loss(cls[m], t[..., 5:][m])*self.lambda_cls
 
         return loc_loss, conf_loss, cls_loss

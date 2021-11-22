@@ -8,7 +8,7 @@ from utils.box_utils import decode, nms
 class Detector:
     """ 探测器 """
 
-    def __init__(self, anchors: list, image_size: int, n_classes: int, top_k=200, conf_thresh=0.25, nms_thresh=0.45):
+    def __init__(self, anchors: list, image_size: int, n_classes: int, top_k=100, conf_thresh=0.25, nms_thresh=0.45):
         """
         Parameters
         ----------
@@ -28,7 +28,7 @@ class Detector:
             置信度阈值
 
         nms_thresh: float
-            nms 操作中 iou 的阈值，越小保留的预测框越多
+            nms 操作中 iou 的阈值，越大保留的预测框越多
         """
         self.top_k = top_k
         self.anchors = anchors

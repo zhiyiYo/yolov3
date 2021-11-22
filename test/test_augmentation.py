@@ -4,7 +4,7 @@ import unittest
 import torch
 from net.dataset import VOCDataset
 from utils.augmentation_utils import (BBoxToAbsoluteCoords, Compose,
-                                      VOCAugmentation)
+                                      YoloAugmentation)
 from utils.box_utils import draw
 
 
@@ -19,7 +19,7 @@ class TestAugmention(unittest.TestCase):
     def test_voc_augmenter(self):
         """ 测试 VOC 图像增强器 """
         self.dataset.transformer = Compose(
-            [VOCAugmentation(416), BBoxToAbsoluteCoords()])
+            [YoloAugmentation(416), BBoxToAbsoluteCoords()])
         image, target = self.dataset[3]
         self.draw(image, target)
 

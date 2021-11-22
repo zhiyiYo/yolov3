@@ -70,7 +70,7 @@ class BBoxToPercentCoords(Transformer):
     """ 将未归一化的边界框归一化 """
 
     def transform(self, image: ndarray, bbox: ndarray, label: ndarray):
-        h, w, c = image.shape
+        h, w, _ = image.shape
         bbox[:, [0, 2]] /= w
         bbox[:, [1, 3]] /= h
         return image, bbox, label
@@ -79,7 +79,7 @@ class BBoxToPercentCoords(Transformer):
 class Resize(Transformer):
     """ 调整图像大小 """
 
-    def __init__(self, size=(300, 300)):
+    def __init__(self, size=(416, 416)):
         super().__init__()
         self.size = size
 
@@ -145,7 +145,7 @@ class ImageAugmenter(Transformer):
         # 将边界框变回坐标矩阵
         bounding_boxes.clip_out_of_image_()
         bbox = corner_to_center_numpy(bounding_boxes.to_xyxy_array())
-
+        label = np.array([box.label for box in bounding_boxes])
         return image, bbox, label
 
 
@@ -172,8 +172,8 @@ class Padding(ImageAugmenter):
         super().__init__(augmenter)
 
 
-class VOCAugmentation(Transformer):
-    """ VOC 数据集增强器 """
+class YoloAugmentation(Transformer):
+    """ Yolo 训练时使用的数据集增强器 """
 
     def __init__(self, image_size: int) -> None:
         """
@@ -198,7 +198,7 @@ class VOCAugmentation(Transformer):
 class ToTensor(Transformer):
     """ 将 np.ndarray 图像转换为 Tensor """
 
-    def __init__(self, image_size=300):
+    def __init__(self, image_size=416):
         """
         Parameters
         ----------

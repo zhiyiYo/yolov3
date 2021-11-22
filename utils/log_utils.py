@@ -1,6 +1,7 @@
 # coding:utf-8
 import os
 import json
+from pathlib import Path
 
 
 class LossLogger:
@@ -21,24 +22,27 @@ class LossLogger:
         """
         self.frequency = frequency
         self.log_file = log_file
-        self.save_dir = save_dir
+        self.save_dir = Path(save_dir)
         self.loss = 0
         self.loc_loss = 0
         self.conf_loss = 0
+        self.cls_loss = 0
         self.losses = []
         self.loc_losses = []
         self.conf_losses = []
+        self.cls_losses = []
         self.n_steps = 0
 
         # 载入历史数据
         if log_file:
             self.load(log_file)
 
-    def update(self, loc_loss: float, conf_loss: float):
+    def update(self, loc_loss: float, conf_loss: float, cls_loss: float):
         """ 更新损失 """
         self.loc_loss += loc_loss
         self.conf_loss += conf_loss
-        self.loss += (loc_loss+conf_loss)
+        self.cls_loss += cls_loss
+        self.loss += (loc_loss+conf_loss+cls_loss)
 
         # 如果遇到了记录点就记录数据
         self.n_steps += 1
@@ -50,9 +54,11 @@ class LossLogger:
         self.losses.append(self.loss/self.frequency)
         self.loc_losses.append(self.loc_loss/self.frequency)
         self.conf_losses.append(self.conf_loss/self.frequency)
+        self.cls_losses.append(self.cls_loss/self.frequency)
         self.loss = 0
         self.loc_loss = 0
         self.conf_loss = 0
+        self.cls_loss = 0
 
     def load(self, file_path: str):
         """ 载入历史记录数据 """
@@ -65,6 +71,7 @@ class LossLogger:
                 self.losses = data['losses']  # type:list
                 self.loc_losses = data['loc_losses']  # type:list
                 self.conf_losses = data['conf_losses']  # type:list
+                self.cls_losses = data['cls_losses']  # type:list
         except:
             raise Exception("json 文件损坏，无法正确读取内容！")
 
@@ -76,11 +83,12 @@ class LossLogger:
         file_name: str
             文件名，不包含 `.json` 后缀
         """
-        os.makedirs(self.save_dir, exist_ok=True)
-        with open(os.path.join(self.save_dir, file_name+'.json'), 'w', encoding='utf-8') as f:
+        self.save_dir.mkdir(exist_ok=True)
+        with open(self.save_dir/f'{file_name}.json', 'w', encoding='utf-8') as f:
             data = {
                 "losses": self.losses,
                 "loc_losses": self.loc_losses,
-                "conf_losses": self.conf_losses
+                "conf_losses": self.conf_losses,
+                'cls_losses': self.cls_losses
             }
             json.dump(data, f)

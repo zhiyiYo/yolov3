@@ -16,13 +16,14 @@ def plot_loss(log_file: str):
         损失日志文件路径
     """
     logger = LossLogger(None, log_file)
-    iteration = np.arange(0, len(logger.losses))*418
+    epoch = np.arange(0, len(logger.losses))
 
     fig, ax = plt.subplots(1, 1, num='损失曲线')
-    ax.plot(iteration, logger.losses, label='loss')
-    ax.plot(iteration, logger.loc_losses, label='loc_loss')
-    ax.plot(iteration, logger.conf_losses, label='conf_loss')
-    ax.set(xlabel='iteration', ylabel='loss', title='SSD Loss Curve')
+    ax.plot(epoch, logger.losses, label='loss')
+    ax.plot(epoch, logger.loc_losses, label='loc_loss')
+    ax.plot(epoch, logger.conf_losses, label='conf_loss')
+    ax.plot(epoch, logger.cls_losses, label='cls_loss')
+    ax.set(xlabel='epoch', ylabel='loss', title='Yolo Loss Curve')
     ax.legend()
 
     return fig, ax
