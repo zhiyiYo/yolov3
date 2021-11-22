@@ -120,7 +120,7 @@ class EvalPipeline:
                 }
 
         # 保存预测数据
-        self.save_dir.mkdir(exist_ok=True)
+        self.save_dir.mkdir(exist_ok=True, parents=True)
         with open(p, 'w', encoding='utf-8') as f:
             json.dump(self.preds, f)
 
@@ -180,7 +180,7 @@ class EvalPipeline:
         print(f'mAP of {self.model_path}: {mAP:.2%}')
 
         # 保存评估结果
-        self.save_dir.mkdir(exist_ok=True)
+        self.save_dir.mkdir(exist_ok=True, parents=True)
         p = self.save_dir / (self.model_path.stem + '_AP.json')
         with open(p, 'w', encoding='utf-8') as f:
             json.dump(result, f)

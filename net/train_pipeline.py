@@ -136,7 +136,7 @@ class TrainPipeline:
     def save(self):
         """ 保存模型和训练损失数据 """
         self.pbar.close()
-        self.save_dir.mkdir(exist_ok=True)
+        self.save_dir.mkdir(exist_ok=True, parents=True)
 
         # 保存模型
         self.model.eval()

@@ -83,7 +83,7 @@ class LossLogger:
         file_name: str
             文件名，不包含 `.json` 后缀
         """
-        self.save_dir.mkdir(exist_ok=True)
+        self.save_dir.mkdir(exist_ok=True, parents=True)
         with open(self.save_dir/f'{file_name}.json', 'w', encoding='utf-8') as f:
             data = {
                 "losses": self.losses,
