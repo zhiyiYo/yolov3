@@ -152,9 +152,9 @@ class Yolo(nn.Module):
         super().__init__()
         # 先验框
         anchors = anchors or [
-            [[10, 13], [16, 30], [33, 23]],
+            [[116, 90], [156, 198], [373, 326]],
             [[30, 61], [62, 45], [59, 119]],
-            [[116, 90], [156, 198], [373, 326]]
+            [[10, 13], [16, 30], [33, 23]]
         ]
         anchors = np.array(anchors)
         anchors = anchors*image_size/416
@@ -193,7 +193,7 @@ class Yolo(nn.Module):
 
         # 探测器
         self.detector = Detector(
-            self.anchors, image_size, n_classes, conf_thresh=0.4, nms_thresh=nms_thresh)
+            self.anchors, image_size, n_classes, conf_thresh=0.25, nms_thresh=nms_thresh)
 
     def forward(self, x):
         """
