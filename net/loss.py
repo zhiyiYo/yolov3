@@ -1,5 +1,5 @@
 # coding: utf-8
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 from torch import Tensor, nn
@@ -41,15 +41,15 @@ class YoloLoss(nn.Module):
         self.mse_loss = nn.MSELoss(reduction='mean')
         self.bce_loss = nn.BCELoss(reduction='mean')
 
-    def forward(self, preds: Tuple[Tensor], target: Tensor):
+    def forward(self, preds: Tuple[Tensor], targets: List[Tensor]):
         """
         Parameters
         ----------
         preds: Tuple[Tensor]
             Yolo 神经网络输出的各个特征图，每个特征图的维度为 `(N, (n_classes+5)*n_anchors, H, W)`
 
-        target: Tensor of shape `(N, n_objects, 5)`
-            标签，最后一个维度的第一个元素为类别，剩下四个元素为边界框 `(cx, cy, w, h)`
+        targets: List[Tensor]
+            标签数据，每个标签张量的维度为 `(N, n_objects, 5)`，最后一维的第一个元素为类别，剩下为边界框 `(cx, cy, w, h)`
 
         Returns
         -------
@@ -85,9 +85,9 @@ class YoloLoss(nn.Module):
             # 匹配边界框
             step_h = self.image_size/img_h
             step_w = self.image_size/img_w
-            anchors = [(i/step_w, j/step_h) for i, j in anchors]
+            anchors = [[i/step_w, j/step_h] for i, j in anchors]
             p_mask, n_mask, t = match(
-                anchors, target, img_h, img_w, self.n_classes, self.overlap_thresh)
+                anchors, targets, img_h, img_w, self.n_classes, self.overlap_thresh)
 
             p_mask = p_mask.to(pred.device)
             n_mask = n_mask.to(pred.device)

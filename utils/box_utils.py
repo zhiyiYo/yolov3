@@ -62,7 +62,7 @@ def jaccard_overlap(prior: Tensor, bbox: Tensor):
 
 
 def jaccard_overlap_numpy(box: np.ndarray, boxes: np.ndarray):
-    """ 计算一个边界框和其他边界框的交并比
+    """ 计算一个边界框和多个边界框的交并比
 
     Parameters
     ----------
@@ -192,15 +192,15 @@ def decode(pred: Tensor, anchors: List[List[int]], n_classes: int, image_size: i
     return out
 
 
-def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, overlap_thresh=0.5):
+def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, overlap_thresh=0.5):
     """ 匹配先验框和边界框真值
 
     Parameters
     ----------
-    anchors: List[Tuple[float, float]]
+    anchors: list of shape `(n_anchors, 2)`
         根据特征图的大小进行过缩放的先验框
 
-    target: List[Tensor]
+    targets: List[Tensor]
         标签，每个元素的最后一个维度的第一个元素为类别，剩下四个为 `(cx, cy, w, h)`
 
     h: int
@@ -226,7 +226,7 @@ def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, o
     t: Tensor of shape `(N, n_anchors, H, W, n_classes+5)`
         标签
     """
-    N = len(target)
+    N = len(targets)
     n_anchors = len(anchors)
 
     # 初始化返回值
@@ -237,10 +237,13 @@ def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, o
     # 匹配先验框和边界框
     anchors = np.hstack((np.zeros((n_anchors, 2)), np.array(anchors)))
     for i in range(N):
-        for j in range(target[i].size(0)):
+        target = targets[i]  # shape:(n_objects, 5)
+
+        # 迭代每一个 ground truth box
+        for j in range(target.size(0)):
             # 获取标签数据
-            cx, gw = target[i][j, [1, 3]]*w
-            cy, gh = target[i][j, [2, 4]]*h
+            cx, gw = target[j, [1, 3]]*w
+            cy, gh = target[j, [2, 4]]*h
 
             # 获取单元格的坐标
             gj, gi = int(cx), int(cy)
@@ -256,11 +259,11 @@ def match(anchors: list, target: List[Tensor], h: int, w: int, n_classes: int, o
 
             # 计算标签值
             t[i, index, gi, gj, 0] = cx-gj
-            t[i, index, gi, gj, 1] = cx-gi
+            t[i, index, gi, gj, 1] = cy-gi
             t[i, index, gi, gj, 2] = math.log(gw/anchors[index, 2]+1e-16)
             t[i, index, gi, gj, 3] = math.log(gh/anchors[index, 3]+1e-16)
             t[i, index, gi, gj, 4] = 1
-            t[i, index, gi, gj, 5+int(target[i][j, 0])] = 1
+            t[i, index, gi, gj, 5+int(target[j, 0])] = 1
 
     return p_mask, n_mask, t
 
