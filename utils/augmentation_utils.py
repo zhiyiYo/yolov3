@@ -154,11 +154,10 @@ class DefaultAugmenter(ImageAugmenter):
 
     def __init__(self):
         augmenter = iaa.Sequential([
-            iaa.Dropout([0, 0.01]),
             iaa.Sharpen((0, 0.1)),
-            iaa.Affine((0.8, 1.5), (-0.1, 0.1), rotate=(-10, 10)),
+            iaa.Affine((0.8, 1.5), (-0.1, 0.1)),
             iaa.AddToBrightness((-60, 40)),
-            iaa.AddToHue((-20, 20)),
+            iaa.AddToHue((-10, 10)),
             iaa.Fliplr(0.5)
         ])
         super().__init__(augmenter)
@@ -168,8 +167,9 @@ class Padding(ImageAugmenter):
     """ 填充图像为正方形 """
 
     def __init__(self):
-        augmenter = iaa.Sequential(
-            [iaa.PadToAspectRatio(1, position='center-center')])
+        augmenter = iaa.Sequential([
+            iaa.PadToAspectRatio(1, position='center-center').to_deterministic()
+        ])
         super().__init__(augmenter)
 
 

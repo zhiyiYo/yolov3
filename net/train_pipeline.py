@@ -37,7 +37,7 @@ class TrainPipeline:
     """ 训练模型流水线 """
 
     def __init__(self, n_classes: int, image_size: int, anchors: list, dataset: Dataset, darknet_path: str = None,
-                 yolo_path: str = None, lr=0.01, backbone_lr=1e-3, momentum=0.9, weight_decay=5e-4, lr_steps=(60, 80),
+                 yolo_path: str = None, lr=0.01, backbone_lr=1e-3, momentum=0.9, weight_decay=5e-4, lr_steps=(40, 50),
                  batch_size=16, start_epoch=0, max_epoch=60, save_frequency=5, use_gpu=True, save_dir='model',
                  log_file: str = None, log_dir='log'):
         """
