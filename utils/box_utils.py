@@ -168,7 +168,7 @@ def decode(pred: Tensor, anchors: List[List[int]], n_classes: int, image_size: i
     # 缩放先验框
     step_h = image_size/h
     step_w = image_size/w
-    anchors = [(i/step_w, j/step_h) for i, j in anchors]
+    anchors = [[i/step_w, j/step_h] for i, j in anchors]
     anchors = Tensor(anchors)  # type:Tensor
 
     # 广播
@@ -225,6 +225,9 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
 
     t: Tensor of shape `(N, n_anchors, H, W, n_classes+5)`
         标签
+
+    scale: Tensor of shape `(N, n_anchors, h, w)`
+        缩放值，用于惩罚小方框的定位
     """
     N = len(targets)
     n_anchors = len(anchors)
@@ -233,6 +236,7 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
     p_mask = torch.zeros(N, n_anchors, h, w)
     n_mask = torch.ones(N, n_anchors, h, w)
     t = torch.zeros(N, n_anchors, h, w, n_classes+5)
+    scale = torch.zeros(N, n_anchors, h, w)
 
     # 匹配先验框和边界框
     anchors = np.hstack((np.zeros((n_anchors, 2)), np.array(anchors)))
@@ -257,7 +261,7 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
             p_mask[i, index, gi, gj] = 1
             # 正例除外，与 ground truth 的交并比都小于阈值则为负例
             n_mask[i, index, gi, gj] = 0
-            n_mask[i, iou > overlap_thresh, gi, gj] = 0
+            n_mask[i, iou >= overlap_thresh, gi, gj] = 0
 
             # 计算标签值
             t[i, index, gi, gj, 0] = cx-gj
@@ -267,7 +271,10 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
             t[i, index, gi, gj, 4] = 1
             t[i, index, gi, gj, 5+int(target[j, 0])] = 1
 
-    return p_mask, n_mask, t
+            # 缩放值，用于惩罚小方框的定位
+            scale[i, index, gi, gj] = 2-target[j, 3]*target[j, 4]
+
+    return p_mask, n_mask, t, scale
 
 
 def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.45, top_k=100):
@@ -369,7 +376,7 @@ def draw(image: Union[ndarray, Image.Image], bbox: ndarray, label: ndarray, conf
         # 选择颜色
         class_index = label_unique.index(label[i])
         color = to_hex_color(cmapy.color(
-            'viridis', color_indexes[class_index], True))
+            'rainbow', color_indexes[class_index], True))
 
         # 绘制方框
         image_draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
@@ -379,9 +386,11 @@ def draw(image: Union[ndarray, Image.Image], bbox: ndarray, label: ndarray, conf
         y2_ = y1 if y1_ < y1 else y1+23
         text = label[i] if conf is None else f'{label[i]} | {conf[i]:.2f}'
         l = font.getlength(text) + 3
-        image_draw.rectangle([x1, y1_, x1+l, y2_],
-                             fill=color+'75', outline=color+'DD')
-        image_draw.text([x1+2, y1_+2], text=text,
+        right = x1+l if x1+l <= image.width-1 else image.width-1
+        left = int(right - l)
+        image_draw.rectangle([left, y1_, right, y2_],
+                             fill=color+'AA', outline=color+'DD')
+        image_draw.text([left+2, y1_+2], text=text,
                         font=font, embedded_color=color)
 
     return image

@@ -23,10 +23,10 @@ def image_detect(model_path: str, image_path: str, classes: List[str], image_siz
         类别列表
 
     image_size: int
-        输入神经网络的图片大小
+        输入神经网络的图片大小，必须是 32 的倍数
 
     anchors: list
-        输入神经网络的图像尺寸为 416 时先验框
+        输入神经网络的图像尺寸为 416 时的先验框
 
     conf_thresh: float
         置信度阈值，不会显示小于这个阈值的预测框
@@ -68,7 +68,7 @@ def camera_detect(model_path: str, classes: List[str], image_size: int = 416, an
         类别列表
 
     image_size: int
-        输入神经网络的图片大小
+        输入神经网络的图片大小，必须是 32 的倍数
 
     anchors: list
         输入神经网络的图像尺寸为 416 时先验框

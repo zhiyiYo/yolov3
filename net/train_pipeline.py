@@ -11,6 +11,7 @@ from torch.nn import init
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from utils.log_utils import LossLogger
+from utils.datetime_utils import time_delta
 
 from .dataset import collate_fn
 from .loss import YoloLoss
@@ -37,7 +38,7 @@ class TrainPipeline:
 
     def __init__(self, n_classes: int, image_size: int, anchors: list, dataset: Dataset, darknet_path: str = None,
                  yolo_path: str = None, lr=0.01, backbone_lr=1e-3, momentum=0.9, weight_decay=5e-4, lr_steps=(60, 80),
-                 batch_size=16, start_epoch=0, max_epoch=100, save_frequency=5, use_gpu=True, save_dir='model',
+                 batch_size=16, start_epoch=0, max_epoch=60, save_frequency=5, use_gpu=True, save_dir='model',
                  log_file: str = None, log_dir='log'):
         """
         Parameters
@@ -200,7 +201,7 @@ class TrainPipeline:
                     loc_loss.item(), conf_loss.item(), cls_loss.item())
 
                 # 更新进度条
-                cost_time = datetime.now() - start_time
+                cost_time = time_delta(start_time)
                 self.pbar.set_postfix_str(
                     f'loss: {loss.item():.3f}, loc_loss: {loc_loss.item():.3f}, conf_loss: {conf_loss.item():.3f}, cls_loss: {cls_loss.item():.3f}, 执行时间: {cost_time}\33[0m')
                 self.pbar.update()

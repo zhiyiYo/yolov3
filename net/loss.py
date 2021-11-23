@@ -86,19 +86,20 @@ class YoloLoss(nn.Module):
             step_h = self.image_size/img_h
             step_w = self.image_size/img_w
             anchors = [[i/step_w, j/step_h] for i, j in anchors]
-            p_mask, n_mask, t = match(
+            p_mask, n_mask, t, scale = match(
                 anchors, targets, img_h, img_w, self.n_classes, self.overlap_thresh)
 
             p_mask = p_mask.to(pred.device)
             n_mask = n_mask.to(pred.device)
             t = t.to(pred.device)
+            scale = scale.to(pred.device)
 
             # 定位损失
-            x_loss = self.mse_loss(x*p_mask, t[..., 0]*p_mask)*self.lambda_box
-            y_loss = self.mse_loss(y*p_mask, t[..., 1]*p_mask)*self.lambda_box
-            w_loss = self.mse_loss(w*p_mask, t[..., 2]*p_mask)*self.lambda_box
-            h_loss = self.mse_loss(h*p_mask, t[..., 3]*p_mask)*self.lambda_box
-            loc_loss += x_loss + y_loss + w_loss + h_loss
+            x_loss = self.mse_loss(x*p_mask*scale, t[..., 0]*p_mask*scale)
+            y_loss = self.mse_loss(y*p_mask*scale, t[..., 1]*p_mask*scale)
+            w_loss = self.mse_loss(w*p_mask*scale, t[..., 2]*p_mask*scale)
+            h_loss = self.mse_loss(h*p_mask*scale, t[..., 3]*p_mask*scale)
+            loc_loss += (x_loss + y_loss + w_loss + h_loss)*self.lambda_box
 
             # 置信度损失
             conf_loss += self.bce_loss(conf*p_mask, p_mask)*self.lambda_obj + \

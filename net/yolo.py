@@ -141,7 +141,7 @@ class Yolo(nn.Module):
             类别数
 
         image_size: int
-            图片尺寸
+            图片尺寸，必须是 32 的倍数
 
         anchors: list
             输入图像大小为 416 时对应的先验框
@@ -150,13 +150,16 @@ class Yolo(nn.Module):
             非极大值抑制的交并比阈值，值越大保留的预测框越多
         """
         super().__init__()
+        if image_size <= 0 or image_size % 32 != 0:
+            raise ValueError("image_size 必须是 32 的倍数")
+
         # 先验框
         anchors = anchors or [
             [[116, 90], [156, 198], [373, 326]],
             [[30, 61], [62, 45], [59, 119]],
             [[10, 13], [16, 30], [33, 23]]
         ]
-        anchors = np.array(anchors)
+        anchors = np.array(anchors, dtype=np.float32)
         anchors = anchors*image_size/416
         self.anchors = anchors.tolist()
 
@@ -253,7 +256,7 @@ class Yolo(nn.Module):
         """
         return self.detector(self(x))
 
-    def detect(self, image: Union[str, np.ndarray], classes: List[str], conf_thresh=0.6, use_gpu=True):
+    def detect(self, image: Union[str, np.ndarray], classes: List[str], conf_thresh=0.6, use_gpu=True) -> Image.Image:
         """ 对图片进行目标检测
 
         Parameters

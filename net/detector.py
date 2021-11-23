@@ -66,11 +66,10 @@ class Detector:
         batch_pred = torch.cat(batch_pred, dim=1)
 
         # 非极大值抑制
-        out = torch.zeros(N, self.n_classes, self.top_k, 5)
         out = []
         for pred in batch_pred:
             # 过滤掉置信度太低的预测框
-            pred = pred[pred[:, 4] > self.conf_thresh]
+            pred = pred[pred[:, 4] >= self.conf_thresh]
             if not pred.size(0):
                 continue
 
