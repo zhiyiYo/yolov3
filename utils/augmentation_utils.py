@@ -168,7 +168,8 @@ class Padding(ImageAugmenter):
     """ 填充图像为正方形 """
 
     def __init__(self):
-        augmenter = iaa.Sequential([iaa.PadToAspectRatio(1)])
+        augmenter = iaa.Sequential(
+            [iaa.PadToAspectRatio(1, position='center-center')])
         super().__init__(augmenter)
 
 
@@ -210,6 +211,7 @@ class ToTensor(Transformer):
         """
         super().__init__()
         self.image_size = image_size
+        self.padding = iaa.PadToAspectRatio(1, position='center-center')
 
     def transform(self, image: ndarray, bbox: ndarray = None, label: ndarray = None):
         """ 将图像进行缩放、中心化并转换为 Tensor
@@ -228,6 +230,7 @@ class ToTensor(Transformer):
             转换后的图像
         """
         size = self.image_size
+        image = self.padding(image=image)
         x = cv.resize(image, (size, size)).astype(np.float32)
         x = torch.from_numpy(x).permute(2, 0, 1).unsqueeze(0)
         return x

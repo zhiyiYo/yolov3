@@ -36,8 +36,8 @@ class TrainPipeline:
     """ 训练模型流水线 """
 
     def __init__(self, n_classes: int, image_size: int, anchors: list, dataset: Dataset, darknet_path: str = None,
-                 yolo_path: str = None, lr=0.01, momentum=0.9, weight_decay=5e-4, lr_steps=(60, 80), batch_size=16,
-                 start_epoch=0, max_epoch=100, save_frequency=5, use_gpu=True, save_dir='model',
+                 yolo_path: str = None, lr=0.01, backbone_lr=1e-3, momentum=0.9, weight_decay=5e-4, lr_steps=(60, 80),
+                 batch_size=16, start_epoch=0, max_epoch=100, save_frequency=5, use_gpu=True, save_dir='model',
                  log_file: str = None, log_dir='log'):
         """
         Parameters
@@ -64,6 +64,9 @@ class TrainPipeline:
 
         lr: float
             学习率
+
+        backbone_lr: float
+            主干网络学习率
 
         momentum: float
             冲量
@@ -122,10 +125,19 @@ class TrainPipeline:
 
         # 创建优化器和损失函数
         self.criterion = YoloLoss(anchors, n_classes, image_size)
+
+        darnet_params = self.model.darknet.parameters()
+        other_params = [i for i in self.model.parameters()
+                        if i not in darnet_params]
         self.optimizer = optim.SGD(
-            [{"params": self.model.parameters(), 'initial_lr': lr}],
-            lr, momentum, weight_decay=weight_decay
+            [
+                {"params": darnet_params, 'initial_lr': backbone_lr, 'lr': backbone_lr},
+                {'params': other_params, 'initial_lr': lr, 'lr': lr}
+            ],
+            momentum=momentum,
+            weight_decay=weight_decay
         )
+
         self.lr_schedule = optim.lr_scheduler.MultiStepLR(
             self.optimizer, lr_steps, 0.1, last_epoch=start_epoch)
 

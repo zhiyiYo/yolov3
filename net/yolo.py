@@ -9,7 +9,7 @@ from torch import nn
 from PIL import Image
 
 from .detector import Detector
-from utils.box_utils import draw
+from utils.box_utils import draw, rescale_bbox
 from utils.augmentation_utils import ToTensor
 
 
@@ -133,7 +133,7 @@ class YoloBlock(nn.Module):
 class Yolo(nn.Module):
     """ Yolo 神经网络 """
 
-    def __init__(self, n_classes: int, image_size=416, anchors: list=None, nms_thresh=0.45):
+    def __init__(self, n_classes: int, image_size=416, anchors: list = None, nms_thresh=0.45):
         """
         Parameters
         ----------
@@ -193,7 +193,7 @@ class Yolo(nn.Module):
 
         # 探测器
         self.detector = Detector(
-            self.anchors, image_size, n_classes, conf_thresh=0.25, nms_thresh=nms_thresh)
+            self.anchors, image_size, n_classes, conf_thresh=0.1, nms_thresh=nms_thresh)
 
     def forward(self, x):
         """
@@ -246,8 +246,10 @@ class Yolo(nn.Module):
 
         Returns
         -------
-        out: Tensor of shape `(N, n_classes, top_k, 5)`
-            检测结果，最后一个维度的第一个元素为置信度，后四个元素为边界框 `(cx, cy, w, h)`
+        out: List[Dict[int, Tensor]]
+            所有输入图片的检测结果，列表中的一个元素代表一张图的检测结果，
+            字典中的键为类别索引，值为该类别的检测结果，检测结果的最后一维的第一个元素为置信度，
+            后四个元素为边界框 `(cx, cy, w, h)`，
         """
         return self.detector(self(x))
 
@@ -291,22 +293,23 @@ class Yolo(nn.Module):
             x = x.cuda()
 
         # 预测边界框和置信度，shape: (n_classes, top_k, 5)
-        y = self.predict(x)[0]
+        y = self.predict(x)
+        if not y:
+            return Image.fromarray(image)
 
         # 筛选出置信度不小于阈值的预测框
         bbox = []
         conf = []
         label = []
-        for c in range(y.size(0)):
-            mask = y[c, :, 0] >= conf_thresh
+        for c, pred in y[0].items():
+            pred = pred.numpy()
+            mask = pred[:, 0] >= conf_thresh
 
             # 将边界框还原会原来的尺寸
-            boxes = y[c, :, 1:][mask]
-            boxes[:, [0, 2]] *= (w/self.image_size)
-            boxes[:, [1, 3]] *= (h/self.image_size)
-            bbox.append(boxes.detach().numpy())
+            boxes = rescale_bbox(pred[:, 1:][mask], self.image_size, h, w)
+            bbox.append(boxes)
 
-            conf.extend(y[c, :, 0][mask].tolist())
+            conf.extend(pred[:, 0][mask].tolist())
             label.extend([classes[c]] * mask.sum())
 
         image = draw(image, np.vstack(bbox), label, conf)

@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import torch
 from PIL import Image
-from utils.box_utils import jaccard_overlap_numpy, center_to_corner_numpy
+from utils.box_utils import jaccard_overlap_numpy, center_to_corner_numpy, rescale_bbox
 from utils.augmentation_utils import ToTensor
 
 from .dataset import VOCDataset
@@ -85,7 +85,6 @@ class EvalPipeline:
         transformer = ToTensor(self.image_size)
 
         print('🛸 正在预测中...')
-        size = self.image_size
         for i, (image_path, image_name) in enumerate(zip(self.dataset.image_paths, self.dataset.image_names)):
             print(f'\r当前进度：{i/len(self.dataset):.0%}', end='')
 
@@ -95,26 +94,25 @@ class EvalPipeline:
 
             # 预测
             x = transformer.transform(image).to(self.device)
-            out = self.model.predict(x)[0].cpu().numpy()
+            out = self.model.predict(x)
+            if not out:
+                continue
 
-            for i, c in enumerate(self.dataset.classes):
-                y = out[i]
-                mask = y[:, 0] > self.conf_thresh
+            for c, pred in out[0].items():
+                pred = pred.numpy()
+                mask = pred[:, 0] > self.conf_thresh
 
                 # 如果没有一个边界框的置信度大于阈值就纸条跳过这个类
                 if not mask.any():
                     continue
 
                 # 筛选出满足阈值条件的边界框
-                conf = y[:, 0][mask]  # type:np.ndarray
-                bbox = y[:, 1:][mask]  # type:np.ndarray
-                bbox[:, [0, 2]] *= (w/self.image_size)
-                bbox[:, [1, 3]] *= (h/self.image_size)
-                bbox[:, [0, 2]] += 1
+                conf = pred[:, 0][mask]  # type:np.ndarray
+                bbox = rescale_bbox(pred[:, 1:][mask], self.image_size, h, w)
                 bbox = center_to_corner_numpy(bbox)
 
                 # 保存预测结果
-                self.preds[c][image_name] = {
+                self.preds[self.dataset.classes[c]][image_name] = {
                     "bbox": bbox.tolist(),
                     "conf": conf.tolist()
                 }

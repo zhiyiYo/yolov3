@@ -18,15 +18,18 @@ def plot_loss(log_file: str):
     logger = LossLogger(None, log_file)
     epoch = np.arange(0, len(logger.losses))
 
-    fig, ax = plt.subplots(1, 1, num='损失曲线')
-    ax.plot(epoch, logger.losses, label='loss')
-    ax.plot(epoch, logger.loc_losses, label='loc_loss')
-    ax.plot(epoch, logger.conf_losses, label='conf_loss')
-    ax.plot(epoch, logger.cls_losses, label='cls_loss')
-    ax.set(xlabel='epoch', ylabel='loss', title='Yolo Loss Curve')
-    ax.legend()
+    fig, axes = plt.subplots(2, 2, num='损失曲线', tight_layout=True)
+    axes = axes.flatten()
+    axes[0].plot(epoch, logger.losses)
+    axes[1].plot(epoch, logger.loc_losses)
+    axes[2].plot(epoch, logger.conf_losses)
+    axes[3].plot(epoch, logger.cls_losses)
+    axes[0].set(title='Total Loss')
+    axes[1].set(title='Location Loss')
+    axes[2].set(xlabel='epoch', title='Confidence Loss')
+    axes[3].set(xlabel='epoch', title='Classification Loss')
 
-    return fig, ax
+    return fig, axes
 
 
 def plot_PR(file_path: str, class_name: str):

@@ -185,7 +185,7 @@ def decode(pred: Tensor, anchors: List[List[int]], n_classes: int, image_size: i
     out[..., 3] = ph*torch.exp(pred[..., 3])
     out[..., 4:] = pred[..., 4:].sigmoid()
 
-    # 缩放预测框
+    # 缩放预测框到图像大小为 (image_size, image_size) 时的绝对大小
     out[..., [0, 2]] *= step_w
     out[..., [1, 3]] *= step_h
 
@@ -213,7 +213,7 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
         类别数
 
     overlap_thresh: float
-        忽视样例的 IOU 阈值
+        IOU 阈值
 
     Returns
     -------
@@ -245,7 +245,7 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
             cx, gw = target[j, [1, 3]]*w
             cy, gh = target[j, [2, 4]]*h
 
-            # 获取单元格的坐标
+            # 获取边界框中心所处的单元格的坐标
             gj, gi = int(cx), int(cy)
 
             # 计算边界框和先验框的交并比
@@ -255,6 +255,8 @@ def match(anchors: list, targets: List[Tensor], h: int, w: int, n_classes: int, 
             # 标记出正例和反例
             index = np.argmax(iou)
             p_mask[i, index, gi, gj] = 1
+            # 正例除外，与 ground truth 的交并比都小于阈值则为负例
+            n_mask[i, index, gi, gj] = 0
             n_mask[i, iou > overlap_thresh, gi, gj] = 0
 
             # 计算标签值
@@ -277,7 +279,7 @@ def nms(boxes: Tensor, scores: Tensor, overlap_thresh=0.45, top_k=100):
         预测框，坐标形式为 `(cx, cy, w, h)`
 
     scores: Tensor of shape `(n_boxes, )`
-        某个类的每个预测框的置信度
+        每个预测框的置信度
 
     overlap_thresh: float
         IOU 阈值，大于阈值的部分预测框会被移除，值越大保留的框越多
@@ -389,3 +391,41 @@ def to_hex_color(color):
     """ 将颜色转换为 16 进制 """
     color = [hex(c)[2:].zfill(2) for c in color]
     return '#'+''.join(color)
+
+
+def rescale_bbox(bbox: ndarray, image_size: int, h: int, w: int):
+    """ 还原被填充和缩放后的图片的预测框
+
+    Parameters
+    ----------
+    bbox: `~np.ndarray` of shape `(n_objects, 4)`
+        预测框，坐标形式为 `(cx, cy, w, h)`
+
+    image_size: int
+        图像被缩放后的尺寸
+
+    h: int
+        原始图像的高度
+
+    w: int
+        原始图像的宽度
+
+    Returns
+    -------
+    bbox: `~np.ndarray` of shape `(n_objects, 4)`
+        预测框，坐标形式为 `(cx, cy, w, h)`
+    """
+    # 图像填充区域大小
+    pad_x = max(h-w, 0)*image_size/max(h, w)
+    pad_y = max(w-h, 0)*image_size/max(h, w)
+
+    # 被缩放后的图像中的有效图像区域
+    w_ = image_size - pad_x
+    h_ = image_size - pad_y
+
+    # 还原边界框
+    bbox = center_to_corner_numpy(bbox)
+    bbox[:, [0, 2]] = (bbox[:, [0, 2]]-pad_x/2)*w/w_
+    bbox[:, [1, 3]] = (bbox[:, [1, 3]]-pad_y/2)*h/h_
+    bbox = corner_to_center_numpy(bbox)
+    return bbox
