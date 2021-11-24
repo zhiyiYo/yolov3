@@ -14,15 +14,15 @@ class TestPlot(TestCase):
 
     def test_plot_loss(self):
         """ 测试损失绘制 """
-        fig, ax = plot_loss('log/2021-11-23_00-20-01/train_losses_40.json')
+        fig, ax = plot_loss('log/2021-11-24_13-55-33/train_losses_10.json')
         plt.show()
 
     def test_plot_PR(self):
         """ 测试 PR 曲线绘制 """
-        fig, ax = plot_PR('eval/SSD_AP.json', 'cat')
+        fig, ax = plot_PR('eval/Yolo_30_AP.json', 'cat')
         plt.show()
 
     def test_plot_AP(self):
         """ 测试 AP 柱状图绘制 """
-        fig, ax = plot_AP('eval/SSD_AP.json')
+        fig, ax = plot_AP('eval/Yolo_30_AP.json')
         plt.show()

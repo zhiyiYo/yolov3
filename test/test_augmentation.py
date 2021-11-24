@@ -20,12 +20,12 @@ class TestAugmention(unittest.TestCase):
         """ 测试 VOC 图像增强器 """
         self.dataset.transformer = Compose(
             [YoloAugmentation(416), BBoxToAbsoluteCoords()])
-        image, target = self.dataset[3]
+        image, target = self.dataset[4]
         self.draw(image, target)
 
     def draw(self, image: torch.Tensor, target):
         """ 绘制图像 """
-        image = image.permute(1, 2, 0).numpy()
+        image = image.permute(1, 2, 0).numpy()*255
         label = [self.dataset.classes[int(i)] for i in target[:, 0]]
 
         # 绘制边界框和标签

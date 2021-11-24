@@ -8,7 +8,7 @@ from net import Yolo
 
 
 def image_detect(model_path: str, image_path: str, classes: List[str], image_size=416,
-                 anchors=None, conf_thresh=0.6, nms_thresh=0.45, use_gpu=True):
+                 anchors=None, conf_thresh=0.6, nms_thresh=0.45, use_gpu=True, show_conf=True):
     """ 检测图像中的目标
 
     Parameters
@@ -37,6 +37,9 @@ def image_detect(model_path: str, image_path: str, classes: List[str], image_siz
     use_gpu: bool
         是否使用 gpu 加速检测
 
+    show_conf: bool
+        是否显示置信度
+
     Returns
     -------
     image: `~PIL.Image.Image`
@@ -52,7 +55,7 @@ def image_detect(model_path: str, image_path: str, classes: List[str], image_siz
     model.eval()
 
     # 检测目标
-    return model.detect(image_path, classes, conf_thresh, use_gpu=use_gpu)
+    return model.detect(image_path, classes, conf_thresh, use_gpu, show_conf)
 
 
 def camera_detect(model_path: str, classes: List[str], image_size: int = 416, anchors: list = None,

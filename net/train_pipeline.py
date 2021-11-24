@@ -6,8 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 import torch
-from torch import nn, optim
-from torch.nn import init
+from torch import optim
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from utils.log_utils import LossLogger
@@ -37,7 +36,7 @@ class TrainPipeline:
     """ 训练模型流水线 """
 
     def __init__(self, n_classes: int, image_size: int, anchors: list, dataset: Dataset, darknet_path: str = None,
-                 yolo_path: str = None, lr=0.01, backbone_lr=1e-3, momentum=0.9, weight_decay=5e-4, lr_steps=(40, 50),
+                 yolo_path: str = None, lr=0.01, backbone_lr=1e-3, momentum=0.9, weight_decay=4e-5, lr_step_size=20,
                  batch_size=16, start_epoch=0, max_epoch=60, save_frequency=5, use_gpu=True, save_dir='model',
                  log_file: str = None, log_dir='log'):
         """
@@ -75,8 +74,8 @@ class TrainPipeline:
         weight_decay: float
             权重衰减
 
-        lr_steps: Tuple[int]
-            学习率退火的节点
+        lr_step_size: int
+            学习率退火的步长
 
         batch_size: int
             训练集 batch 大小
@@ -127,20 +126,20 @@ class TrainPipeline:
         # 创建优化器和损失函数
         self.criterion = YoloLoss(anchors, n_classes, image_size)
 
-        darnet_params = self.model.darknet.parameters()
+        darknet_params = self.model.darknet.parameters()
         other_params = [i for i in self.model.parameters()
-                        if i not in darnet_params]
+                        if i not in darknet_params]
         self.optimizer = optim.SGD(
             [
-                {"params": darnet_params, 'initial_lr': backbone_lr, 'lr': backbone_lr},
+                {"params": darknet_params, 'initial_lr': backbone_lr, 'lr': backbone_lr},
                 {'params': other_params, 'initial_lr': lr, 'lr': lr}
             ],
             momentum=momentum,
             weight_decay=weight_decay
         )
 
-        self.lr_schedule = optim.lr_scheduler.MultiStepLR(
-            self.optimizer, lr_steps, 0.1, last_epoch=start_epoch)
+        self.lr_schedule = optim.lr_scheduler.StepLR(
+            self.optimizer, lr_step_size, 0.1, last_epoch=start_epoch)
 
         # 训练损失记录器
         self.n_batches = math.ceil(len(self.dataset)/self.batch_size)

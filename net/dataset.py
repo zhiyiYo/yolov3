@@ -7,6 +7,7 @@ import cv2 as cv
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from torchvision.transforms import ToTensor
 from utils.augmentation_utils import Transformer
 
 
@@ -165,7 +166,10 @@ class VOCDataset(Dataset):
             image, bbox, label = self.transformer.transform(image, bbox, label)
             target = np.hstack((label[:, np.newaxis], bbox))
 
-        return torch.from_numpy(image.copy()).permute(2, 0, 1), target
+        image = image.astype(np.float32)
+        image /= 255.0
+
+        return torch.from_numpy(image).permute(2, 0, 1), target
 
 
 def collate_fn(batch: List[Tuple[torch.Tensor, np.ndarray]]):

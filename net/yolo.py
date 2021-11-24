@@ -256,7 +256,7 @@ class Yolo(nn.Module):
         """
         return self.detector(self(x))
 
-    def detect(self, image: Union[str, np.ndarray], classes: List[str], conf_thresh=0.6, use_gpu=True) -> Image.Image:
+    def detect(self, image: Union[str, np.ndarray], classes: List[str], conf_thresh=0.6, use_gpu=True, show_conf=True) -> Image.Image:
         """ 对图片进行目标检测
 
         Parameters
@@ -272,6 +272,9 @@ class Yolo(nn.Module):
 
         use_gpu: bool
             是否使用 GPU
+
+        show_conf: bool
+            是否显示置信度
 
         Returns
         -------
@@ -314,6 +317,9 @@ class Yolo(nn.Module):
 
             conf.extend(pred[:, 0][mask].tolist())
             label.extend([classes[c]] * mask.sum())
+
+        if not show_conf:
+            conf = None
 
         image = draw(image, np.vstack(bbox), label, conf)
         return image

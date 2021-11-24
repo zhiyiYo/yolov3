@@ -3,11 +3,11 @@ from typing import List
 
 import cv2 as cv
 import imgaug.augmenters as iaa
-from imgaug.augmenters.meta import Augmenter
 import numpy as np
-from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
-from numpy import ndarray
 import torch
+from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
+from imgaug.augmenters.meta import Augmenter
+from numpy import ndarray
 
 from .box_utils import center_to_corner_numpy, corner_to_center_numpy
 
@@ -163,17 +163,43 @@ class DefaultAugmenter(ImageAugmenter):
         super().__init__(augmenter)
 
 
+class StrongAugmenter(ImageAugmenter):
+    """ 较为猛烈的图像增强器 """
+
+    def __init__(self):
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+        augmenter = iaa.Sequential(
+            [
+                iaa.OneOf([
+                    iaa.GaussianBlur((0, 3.0)),
+                    iaa.AverageBlur(k=(2, 7)),
+                    iaa.MedianBlur(k=(3, 11)),
+                ]),
+                sometimes(iaa.Sharpen(alpha=(0, 0.5), lightness=(0.75, 1.5))),
+                sometimes(iaa.AdditiveGaussianNoise(
+                    loc=0, scale=(0.0, 0.05*255), per_channel=0.5)),
+                sometimes(iaa.Add((-5, 5), per_channel=0.5)),
+                sometimes(iaa.Multiply((0.8, 1.2), per_channel=0.5)),
+                sometimes(iaa.LinearContrast(
+                    (0.5, 2.0), per_channel=0.5)),
+            ],
+            random_order=True
+        ).to_deterministic()
+        super().__init__(augmenter)
+
+
 class Padding(ImageAugmenter):
     """ 填充图像为正方形 """
 
     def __init__(self):
         augmenter = iaa.Sequential([
-            iaa.PadToAspectRatio(1, position='center-center').to_deterministic()
+            iaa.PadToAspectRatio(
+                1, position='center-center').to_deterministic()
         ])
         super().__init__(augmenter)
 
 
-class YoloAugmentation(Transformer):
+class  YoloAugmentation(Transformer):
     """ Yolo 训练时使用的数据集增强器 """
 
     def __init__(self, image_size: int) -> None:
@@ -186,7 +212,7 @@ class YoloAugmentation(Transformer):
         super().__init__()
         self.transformers = Compose([
             BBoxToAbsoluteCoords(),
-            DefaultAugmenter(),
+            StrongAugmenter(),
             Padding(),
             BBoxToPercentCoords(),
             Resize((image_size, image_size))
@@ -232,5 +258,6 @@ class ToTensor(Transformer):
         size = self.image_size
         image = self.padding(image=image)
         x = cv.resize(image, (size, size)).astype(np.float32)
+        x /= 255.0
         x = torch.from_numpy(x).permute(2, 0, 1).unsqueeze(0)
         return x
