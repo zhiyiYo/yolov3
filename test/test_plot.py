@@ -14,7 +14,7 @@ class TestPlot(TestCase):
 
     def test_plot_loss(self):
         """ 测试损失绘制 """
-        fig, ax = plot_loss('log/2021-11-24_13-55-33/train_losses_10.json')
+        fig, ax = plot_loss('log/2021-11-24_15-45-52/train_losses_20.json')
         plt.show()
 
     def test_plot_PR(self):

@@ -202,7 +202,7 @@ class TrainPipeline:
                 # 更新进度条
                 cost_time = time_delta(start_time)
                 self.pbar.set_postfix_str(
-                    f'loss: {loss.item():.3f}, loc_loss: {loc_loss.item():.3f}, conf_loss: {conf_loss.item():.3f}, cls_loss: {cls_loss.item():.3f}, 执行时间: {cost_time}\33[0m')
+                    f'loss: {loss.item():.5f}, loc_loss: {loc_loss.item():.5f}, conf_loss: {conf_loss.item():.5f}, cls_loss: {cls_loss.item():.5f}, 执行时间: {cost_time}\33[0m')
                 self.pbar.update()
 
             # 关闭进度条

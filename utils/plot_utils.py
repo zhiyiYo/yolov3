@@ -18,16 +18,19 @@ def plot_loss(log_file: str):
     logger = LossLogger(None, log_file)
     epoch = np.arange(0, len(logger.losses))
 
-    fig, axes = plt.subplots(2, 2, num='损失曲线', tight_layout=True)
-    axes = axes.flatten()
-    axes[0].plot(epoch, logger.losses)
-    axes[1].plot(epoch, logger.loc_losses)
-    axes[2].plot(epoch, logger.conf_losses)
-    axes[3].plot(epoch, logger.cls_losses)
-    axes[0].set(title='Total Loss')
-    axes[1].set(title='Location Loss')
-    axes[2].set(xlabel='epoch', title='Confidence Loss')
-    axes[3].set(xlabel='epoch', title='Classification Loss')
+    fig, axes = plt.subplot_mosaic(
+        [['Total Loss']*3, ['Location Loss', 'Confidence Loss', 'Classification Loss']],
+        num='损失曲线',
+        tight_layout=True
+    )
+    losses = [
+        logger.losses, logger.loc_losses,
+        logger.conf_losses, logger.cls_losses
+    ]
+
+    for loss, (title, ax) in zip(losses, axes.items()):
+        ax.set(xlabel='epoch', title=title)
+        ax.plot(epoch, loss)
 
     return fig, axes
 

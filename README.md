@@ -56,3 +56,8 @@ An implementation of yolov3 using pytorch.
 1. Sometimes the data set downloaded through `download.py`' may be incomplete, so please check whether the number of pictures in the data set is correct after downloading, or you can download the data set directly through the browser in the following addresses:
    * http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
    * http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
+
+
+## Reference
+* [[Paper] YOLOv3: An Incremental Improvement](https://pjreddie.com/media/files/papers/YOLOv3.pdf)
+* [[GitHub] BobLiu20 / YOLOv3_PyTorch](https://github.com/BobLiu20/YOLOv3_PyTorch)
