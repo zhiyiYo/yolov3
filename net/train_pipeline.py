@@ -1,12 +1,12 @@
 # coding:utf-8
-import math
 import time
 import traceback
 from pathlib import Path
 from datetime import datetime
 
 import torch
-from torch import optim
+from torch import optim, cuda
+from torch.backends import cudnn
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from utils.log_utils import LossLogger
@@ -104,13 +104,18 @@ class TrainPipeline:
         self.dataset = dataset
         self.save_dir = Path(save_dir)
         self.use_gpu = use_gpu
-        self.device = torch.device('cuda:0' if use_gpu else 'cpu')
         self.save_frequency = save_frequency
         self.batch_size = batch_size
 
         self.max_epoch = max_epoch
         self.start_epoch = start_epoch
         self.current_epoch = start_epoch
+
+        if use_gpu and cuda.is_available():
+            self.device = torch.device('cuda')
+            cudnn.benchmark = True
+        else:
+            self.device = torch.device('cpu')
 
         # 创建模型
         self.model = Yolo(n_classes, image_size, anchors).to(self.device)
@@ -142,7 +147,7 @@ class TrainPipeline:
             self.optimizer, lr_step_size, 0.1, last_epoch=start_epoch)
 
         # 训练损失记录器
-        self.n_batches = math.ceil(len(self.dataset)/self.batch_size)
+        self.n_batches = len(self.dataset)//self.batch_size
         self.logger = LossLogger(self.n_batches, log_file, log_dir)
 
     def save(self):
@@ -169,7 +174,7 @@ class TrainPipeline:
 
         # 数据迭代器
         data_loader = DataLoader(
-            self.dataset, self.batch_size, shuffle=True, collate_fn=collate_fn)
+            self.dataset, self.batch_size, shuffle=True, drop_last=True, collate_fn=collate_fn)
 
         bar_format = '{desc}{n_fmt:>4s}/{total_fmt:<4s}|{bar}|{postfix}'
         print('🚀 开始训练！')

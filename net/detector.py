@@ -3,7 +3,8 @@ from typing import Tuple, Dict, List
 import numpy as np
 
 import torch
-from utils.box_utils import decode, nms
+from utils.box_utils import decode, center_to_corner
+from torchvision.ops import nms
 
 
 class Detector:
@@ -88,7 +89,7 @@ class Detector:
                 mask = pred[:, -1] == c
                 boxes = pred[:, :4][mask]
                 scores = pred[:, 4][mask]
-                keep = nms(boxes, scores, self.nms_thresh, self.top_k)
+                keep = nms(center_to_corner(boxes), scores, self.nms_thresh)
                 detections[int(c)] = torch.cat(
                     (scores[keep].unsqueeze(1), boxes[keep]), dim=1)
 
