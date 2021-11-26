@@ -1,11 +1,11 @@
 # coding:utf-8
 import json
-import os
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import numpy as np
 import torch
+from torch import cuda
 from PIL import Image
 from utils.box_utils import jaccard_overlap_numpy, center_to_corner_numpy, rescale_bbox
 from utils.augmentation_utils import ToTensor
@@ -58,8 +58,9 @@ class EvalPipeline:
         self.save_dir = Path(save_dir)
 
         self.model_path = Path(model_path)
-        self.device = 'cuda:0' if use_gpu else 'cpu'
+        self.device = 'cuda' if use_gpu and cuda.is_available() else 'cpu'
         self.model = Yolo(self.dataset.n_classes, image_size, anchors)
+        self.model.detector.conf_thresh = conf_thresh
         self.model = self.model.to(self.device)
         self.model.load(model_path)
         self.model.eval()

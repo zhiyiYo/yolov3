@@ -1,13 +1,12 @@
 # coding:utf-8
 from os import path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 from xml.etree import ElementTree as ET
 
 import cv2 as cv
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from torchvision.transforms import ToTensor
 from utils.augmentation_utils import Transformer
 
 
@@ -93,14 +92,15 @@ class VOCDataset(Dataset):
         'sheep', 'sofa', 'train', 'tvmonitor'
     ]
 
-    def __init__(self, root: str, image_set: str, tranformer: Transformer = None, keep_difficult=False):
+    def __init__(self, root: Union[str, List[str]], image_set: Union[str, List[str]],
+                 tranformer: Transformer = None, keep_difficult=False):
         """
         Parameters
         ----------
-        root: str
+        root: str or List[str]
             数据集的根路径，下面必须有 `Annotations`、`ImageSets` 和 `JPEGImages` 文件夹
 
-        image_set: str
+        image_set: str or List[str]
             数据集的种类，可以是 `train`、`val`、`trainval` 或者 `test`
 
         transformer: Transformer
@@ -110,6 +110,13 @@ class VOCDataset(Dataset):
             是否保留 difficult 为 1 的样本
         """
         super().__init__()
+        if isinstance(root, str):
+            root = [root]
+        if isinstance(image_set, str):
+            image_set = [image_set]
+        if len(root) != len(image_set):
+            raise ValueError("`root` 和 `image_set` 的个数必须相同")
+
         self.root = root
         self.image_set = image_set
         self.n_classes = len(self.classes)
@@ -123,16 +130,18 @@ class VOCDataset(Dataset):
         self.image_names = []
         self.image_paths = []
         self.annotation_paths = []
-        with open(path.join(self.root, f'ImageSets/Main/{self.image_set}.txt')) as f:
-            for line in f.readlines():
-                line = line.strip()
-                if not line:
-                    continue
-                self.image_names.append(line)
-                self.image_paths.append(
-                    path.join(self.root, f'JPEGImages/{line}.jpg'))
-                self.annotation_paths.append(
-                    path.join(self.root, f'Annotations/{line}.xml'))
+
+        for root, image_set in zip(self.root, self.image_set):
+            with open(path.join(root, f'ImageSets/Main/{image_set}.txt')) as f:
+                for line in f.readlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    self.image_names.append(line)
+                    self.image_paths.append(
+                        path.join(root, f'JPEGImages/{line}.jpg'))
+                    self.annotation_paths.append(
+                        path.join(root, f'Annotations/{line}.xml'))
 
     def __len__(self):
         return len(self.image_paths)

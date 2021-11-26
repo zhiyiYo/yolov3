@@ -231,9 +231,6 @@ class ToTensor(Transformer):
         ----------
         image_size: int
             缩放后的图像尺寸
-
-        mean: tuple
-            RGB 图像各通道的均值
         """
         super().__init__()
         self.image_size = image_size
