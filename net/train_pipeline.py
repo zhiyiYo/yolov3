@@ -27,6 +27,10 @@ def exception_handler(train_func):
                 traceback.print_exc()
 
             train_pipeline.save()
+
+            # 清空 GPU 缓存
+            cuda.empty_cache()
+
             exit()
 
     return wrapper

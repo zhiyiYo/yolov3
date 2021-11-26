@@ -74,7 +74,7 @@ class Detector:
             if not pred.size(0):
                 continue
 
-            # 计算后验概率
+            # 计算得分
             pred[:, 5:] = pred[:, 5:] * pred[:, 4:5]
 
             # 选取出类别置信度最高的那个类作为预测框的预测结果
